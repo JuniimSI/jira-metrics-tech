@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Métricas de Fluxo - Nave Style</title>
+<style>
+:root {
+  --bg: #ffffff; --bg2: #f8fafc; --bg3: #f1f5f9; --border: #e2e8f0;
+  --text: #334155; --text2: #64748b; --text3: #94a3b8; --title: #1e1b4b;
+  --card-bg: #f8fafc; --upload-bg: #fafbfc; --upload-drag: #eef2ff;
+  --tab-active: #6366f1; --tab-inactive: #94a3b8;
+  --p50: #22c55e; --p70: #6366f1; --p85: #f97316; --p95: #ef4444;
+  --purple: #8b5cf6; --gray: #64748b;
+  --blue: #3b82f6; --yellow: #f59e0b; --green: #10b981; --cyan: #06b6d4;
+  --bar-grad1: #818cf8; --bar-grad2: #6366f1;
+  --hl-bg: rgba(99,102,241,0.06); --hl-border: rgba(99,102,241,0.25);
+  --svg-grid: #e2e8f0;
+}
+[data-theme="dark"] {
+  --bg: #0f172a; --bg2: #1e293b; --bg3: #334155; --border: #334155;
+  --text: #e2e8f0; --text2: #94a3b8; --text3: #64748b; --title: #f1f5f9;
+  --card-bg: #1e293b; --upload-bg: #1e293b; --upload-drag: #1e1b4b;
+  --tab-active: #818cf8; --tab-inactive: #64748b;
+  --hl-bg: rgba(129,140,248,0.1); --hl-border: rgba(129,140,248,0.3);
+  --svg-grid: #334155;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); max-width: 860px; margin: 0 auto; padding: 16px; transition: background 0.3s, color 0.3s; }
+h1 { font-size: 22px; font-weight: 800; color: var(--title); }
+.subtitle { color: var(--text2); font-size: 13px; margin: 4px 0 0; }
+
+/* Theme toggle */
+.theme-toggle { position: fixed; top: 12px; right: 12px; z-index: 99; background: var(--bg2); border: 1px solid var(--border); border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 18px; transition: all 0.2s; }
+.theme-toggle:hover { transform: scale(1.1); }
+
+/* Upload */
+.upload { border: 2px dashed var(--border); border-radius: 12px; padding: 20px 24px; margin-bottom: 24px; background: var(--upload-bg); text-align: center; cursor: pointer; transition: all 0.2s; }
+.upload.dragover { border-color: var(--p70); background: var(--upload-drag); }
+.upload-icon { font-size: 28px; margin-bottom: 6px; }
+.upload-title { font-size: 14px; font-weight: 600; color: var(--text); }
+.upload-hint { font-size: 12px; color: var(--text3); margin-top: 4px; }
+.upload-file { margin-top: 10px; display: inline-flex; align-items: center; gap: 6px; background: var(--hl-bg); padding: 4px 12px; border-radius: 20px; font-size: 12px; color: var(--p70); font-weight: 600; }
+
+/* Filters */
+.filters { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+.filters select { padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border); font-size: 13px; background: var(--bg); color: var(--text); cursor: pointer; }
+
+/* Tabs */
+.tabs { border-bottom: 1px solid var(--border); margin-bottom: 20px; display: flex; gap: 4px; flex-wrap: wrap; }
+.tab { padding: 8px 18px; border: none; border-bottom: 3px solid transparent; background: none; color: var(--tab-inactive); font-weight: 500; font-size: 14px; cursor: pointer; }
+.tab.active { color: var(--tab-active); font-weight: 700; border-bottom-color: var(--tab-active); }
+
+/* Cards */
+.cards { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+.card { background: var(--card-bg); border-radius: 12px; padding: 16px 20px; min-width: 130px; flex: 1; }
+.card.hl { box-shadow: 0 0 0 1px var(--hl-border); background: var(--hl-bg); }
+.card-label { font-size: 11px; color: var(--text2); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+.card-value { font-size: 24px; font-weight: 800; margin-top: 4px; }
+.card-sub { font-size: 11px; color: var(--text3); margin-top: 2px; }
+
+/* Section */
+.section { background: var(--card-bg); border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+.section h3 { margin: 0 0 16px; font-size: 14px; font-weight: 700; color: var(--text); }
+.section table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.section th { text-align: right; padding: 8px 4px; color: var(--text2); font-weight: 600; border-bottom: 2px solid var(--border); }
+.section th:first-child { text-align: left; }
+.section td { text-align: right; padding: 10px 4px; border-bottom: 1px solid var(--border); color: var(--text); }
+.section td:first-child { text-align: left; font-weight: 600; }
+.p70col { font-weight: 700 !important; color: var(--p70) !important; }
+
+/* Histogram */
+.hist { display: flex; align-items: flex-end; gap: 8px; height: 140px; }
+.hist-bar { flex: 1; text-align: center; }
+.hist-count { font-size: 12px; font-weight: 700; color: var(--p70); margin-bottom: 4px; }
+.hist-fill { background: linear-gradient(180deg, var(--bar-grad1), var(--bar-grad2)); border-radius: 6px 6px 0 0; transition: height 0.3s; }
+.hist-fill.empty { background: var(--border); }
+.hist-label { font-size: 11px; color: var(--text2); margin-top: 6px; }
+
+/* Type row */
+.type-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+.type-badge { color: white; padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; min-width: 80px; text-align: center; display: inline-block; }
+.type-bar { flex: 1; min-width: 100px; background: var(--border); border-radius: 6px; height: 22px; position: relative; overflow: hidden; }
+.type-fill { height: 100%; border-radius: 6px; }
+.type-marker { position: absolute; top: 0; bottom: 0; width: 3px; border-radius: 2px; }
+.type-vals { font-size: 11px; color: var(--text2); min-width: 220px; text-align: right; }
+.type-count { font-size: 11px; color: var(--text3); }
+
+/* Person card */
+.person { background: var(--card-bg); border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+.person-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
+.person-name { font-weight: 700; color: var(--title); font-size: 15px; }
+.person-count { color: var(--text3); font-size: 12px; margin-left: 8px; }
+.person-tp { font-size: 12px; color: var(--text2); }
+.person-metrics { display: flex; gap: 12px; flex-wrap: wrap; }
+.person-metric { flex: 1; min-width: 70px; }
+.person-metric.hl { background: var(--hl-bg); border-radius: 8px; padding: 4px 8px; }
+.pm-label { font-size: 11px; color: var(--text2); margin-bottom: 2px; }
+.pm-label.p70 { color: var(--p70); font-weight: 600; }
+.pm-value { font-size: 16px; font-weight: 700; }
+.pm-value.p70 { font-weight: 800; }
+.pm-raw { font-size: 10px; color: var(--text3); }
+
+/* Proportion bar */
+.prop-bar { display: flex; height: 36px; border-radius: 8px; overflow: hidden; margin-bottom: 10px; }
+.prop-seg { display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; font-weight: 700; }
+.prop-legend { display: flex; gap: 20px; font-size: 12px; color: var(--text2); flex-wrap: wrap; }
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+
+/* Allocation */
+.alloc-group { margin-bottom: 16px; }
+.alloc-group-title { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+.alloc-item { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.alloc-bar-track { flex: 1; height: 20px; background: var(--border); border-radius: 6px; overflow: hidden; }
+.alloc-bar-fill { height: 100%; border-radius: 6px; transition: width 0.4s; }
+.alloc-label { font-size: 12px; min-width: 100px; font-weight: 600; color: var(--text); }
+.alloc-val { font-size: 12px; color: var(--text2); min-width: 120px; text-align: right; }
+
+/* Donut */
+.donut-container { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; justify-content: center; }
+.donut-legend { display: flex; flex-direction: column; gap: 8px; }
+.donut-legend-item { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text); }
+.donut-legend-pct { font-weight: 700; min-width: 45px; text-align: right; }
+
+.scatter-legend { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px; justify-content: center; }
+.scatter-legend span { font-size: 11px; color: var(--text2); display: flex; align-items: center; gap: 4px; }
+.hidden { display: none; }
+</style>
+</head>
+<body>
+
+<button class="theme-toggle" id="themeBtn" title="Alternar tema">🌙</button>
+
+<div class="upload" id="uploadArea">
+  <input type="file" id="csvInput" accept=".csv" style="display:none">
+  <div class="upload-icon">📂</div>
+  <div class="upload-title">Arraste seu CSV aqui ou clique para selecionar</div>
+  <div class="upload-hint">Colunas: Assignee, Issue Key, Issue Type, Resolved, Summary, Start date, IN PROGRESS, Code Review, TO DEPLOY, Total</div>
+  <div class="upload-file hidden" id="fileInfo"><span>📄</span> <span id="fileName"></span> · <span id="fileCount"></span> itens</div>
+</div>
+
+<div id="dashboard" class="hidden">
+  <h1 id="mainTitle">Métricas de Fluxo</h1>
+  <p class="subtitle" id="mainSubtitle"></p>
+
+  <div class="filters" style="margin-top:16px">
+    <select id="filterType"><option value="all">Todos os tipos</option></select>
+    <select id="filterPerson"><option value="all">Todas as pessoas</option></select>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="overview">Cycle Time</button>
+    <button class="tab" data-tab="allocation">Alocação</button>
+    <button class="tab" data-tab="stages">Estágios</button>
+    <button class="tab" data-tab="people">Por Pessoa</button>
+    <button class="tab" data-tab="scatter">Scatter Plot</button>
+  </div>
+
+  <div id="tab-overview"></div>
+  <div id="tab-allocation" class="hidden"></div>
+  <div id="tab-stages" class="hidden"></div>
+  <div id="tab-people" class="hidden"></div>
+  <div id="tab-scatter" class="hidden"></div>
+</div>
+
+<script>
+const BH = 8;
+let allData = [];
+let currentTab = 'overview';
+let filterType = 'all';
+let filterPerson = 'all';
+
+// Theme
+const themeBtn = document.getElementById('themeBtn');
+let dark = false;
+themeBtn.addEventListener('click', () => {
+  dark = !dark;
+  document.documentElement.setAttribute('data-theme', dark ? 'dark' : '');
+  themeBtn.textContent = dark ? '☀️' : '🌙';
+});
+
+// CSV
+function parseCSV(text) {
+  const lines = text.split('\n').filter(l => l.trim());
+  if (lines.length < 2) return [];
+  const parseLine = line => {
+    const vals = []; let iq = false, f = '';
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (c === '"') { iq = !iq; continue; }
+      if (c === ',' && !iq) { vals.push(f.trim()); f = ''; continue; }
+      f += c;
+    }
+    vals.push(f.trim()); return vals;
+  };
+  const headers = parseLine(lines[0]);
+  return lines.slice(1).map(line => {
+    const vals = parseLine(line); const obj = {};
+    headers.forEach((h, i) => obj[h] = vals[i] || ''); return obj;
+  });
+}
+
+function csvToData(rows) {
+  return rows.map(r => {
+    const pn = v => { if (!v || v === '-') return null; const n = parseFloat(v.replace(',','.')); return isNaN(n) ? null : n; };
+    let key = r['Issue Key'] || '';
+    const m = key.match(/browse\/([\w-]+)/); if (m) key = m[1];
+    return { assignee: r['Assignee']||'Unassigned', key, type: r['Issue Type']||'', resolved: r['Resolved']||'', summary: r['Summary']||'', inProgress: pn(r['IN PROGRESS']), codeReview: pn(r['Code Review']), toDeploy: pn(r['TO DEPLOY']), total: pn(r['Total']) };
+  });
+}
+
+// Math
+function percentile(arr, p) {
+  if (!arr.length) return 0;
+  const s = [...arr].sort((a,b) => a-b);
+  const idx = (p/100)*(s.length-1), lo = Math.floor(idx), hi = Math.ceil(idx);
+  return lo === hi ? s[lo] : s[lo]+(s[hi]-s[lo])*(idx-lo);
+}
+
+function convertToDisplay(h) {
+  if (h == null || isNaN(h)) return {days:0,hours:0,mins:0};
+  const fd = Math.floor(h/BH), frac = (h-fd*BH)/BH, cm = Math.round(frac*24*60);
+  return {days:fd, hours:Math.floor(cm/60), mins:cm%60};
+}
+
+function fmt(h) {
+  if (h == null || isNaN(h)) return '-';
+  const {days:d,hours:hr,mins:mn} = convertToDisplay(h);
+  const p = []; if(d>0)p.push(d+'d'); if(hr>0)p.push(hr+'h'); if(mn>0||!p.length)p.push(mn+'m'); return p.join(' ');
+}
+
+function fmtS(h) {
+  if (h == null || isNaN(h)) return '-';
+  const {days:d,hours:hr,mins:mn} = convertToDisplay(h);
+  if(d>0&&hr>0) return d+'d '+hr+'h'; if(d>0&&mn>0) return d+'d '+mn+'m'; if(d>0) return d+'d';
+  if(hr>0&&mn>0) return hr+'h '+mn+'m'; if(hr>0) return hr+'h'; return mn+'m';
+}
+
+function fmtR(h) { return h != null ? h.toFixed(1)+'h' : '-'; }
+
+const TC = {Bug:'#ef4444',Enhancement:'#6366f1',Subtask:'#8b5cf6',Support:'#f59e0b','Tech Debt':'#10b981',Discovery:'#06b6d4','Design System':'#ec4899'};
+function tcolor(t) { return TC[t]||'#6366f1'; }
+
+// Allocation categories
+const ALLOC = {
+  'Reativo': ['Bug','Support'],
+  'Produto': ['Subtask','Enhancement','Design System','Discovery'],
+  'Débitos Técnicos': ['Tech Debt']
+};
+const ALLOC_COLORS = {'Reativo':'#ef4444','Produto':'#6366f1','Débitos Técnicos':'#10b981'};
+
+// Upload
+const uploadArea = document.getElementById('uploadArea');
+const csvInput = document.getElementById('csvInput');
+uploadArea.addEventListener('click', () => csvInput.click());
+uploadArea.addEventListener('dragover', e => { e.preventDefault(); uploadArea.classList.add('dragover'); });
+uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('dragover'));
+uploadArea.addEventListener('drop', e => { e.preventDefault(); uploadArea.classList.remove('dragover'); const f = e.dataTransfer?.files?.[0]; if(f&&f.name.endsWith('.csv')) loadFile(f); });
+csvInput.addEventListener('change', e => { if(e.target.files?.[0]) loadFile(e.target.files[0]); });
+
+function loadFile(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const rows = parseCSV(e.target.result);
+      const parsed = csvToData(rows);
+      if(parsed.length) {
+        allData = parsed.map(d => ({...d, total: d.total != null ? d.total : 0}));
+        document.getElementById('fileName').textContent = file.name;
+        document.getElementById('fileCount').textContent = allData.length;
+        document.getElementById('fileInfo').classList.remove('hidden');
+        filterType='all'; filterPerson='all'; populateFilters(); render();
+        document.getElementById('dashboard').classList.remove('hidden');
+      }
+    } catch(err) { console.error(err); }
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+function populateFilters() {
+  const types = [...new Set(allData.map(d=>d.type))].filter(Boolean).sort();
+  const people = [...new Set(allData.map(d=>d.assignee))].filter(Boolean).sort();
+  const ft = document.getElementById('filterType'), fp = document.getElementById('filterPerson');
+  ft.innerHTML = '<option value="all">Todos os tipos</option>'+types.map(t=>`<option value="${t}">${t}</option>`).join('');
+  fp.innerHTML = '<option value="all">Todas as pessoas</option>'+people.map(p=>`<option value="${p}">${p}</option>`).join('');
+}
+
+document.getElementById('filterType').addEventListener('change', e => { filterType=e.target.value; render(); });
+document.getElementById('filterPerson').addEventListener('change', e => { filterPerson=e.target.value; render(); });
+
+// Tabs
+const allTabs = ['overview','allocation','stages','people','scatter'];
+document.querySelectorAll('.tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active'); currentTab = btn.dataset.tab;
+    allTabs.forEach(t => document.getElementById('tab-'+t).classList.toggle('hidden', t!==currentTab));
+  });
+});
+
+function card(label, val, raw, color, hl) {
+  return `<div class="card${hl?' hl':''}" style="border-left:4px solid ${color};${hl?'background:var(--hl-bg)':''}">
+    <div class="card-label">${label}</div><div class="card-value" style="color:${color}">${val}</div><div class="card-sub">${raw}</div></div>`;
+}
+
+function render() {
+  let d = allData;
+  if(filterType!=='all') d=d.filter(i=>i.type===filterType);
+  if(filterPerson!=='all') d=d.filter(i=>i.assignee===filterPerson);
+
+  const totals = d.map(x=>x.total).sort((a,b)=>a-b);
+  const ct50=percentile(totals,50), ct70=percentile(totals,70), ct85=percentile(totals,85), ct95=percentile(totals,95);
+  const avg = totals.length ? totals.reduce((a,b)=>a+b,0)/totals.length : 0;
+  const ipT=d.map(x=>x.inProgress).filter(v=>v!=null);
+  const crT=d.map(x=>x.codeReview).filter(v=>v!=null);
+  const dpT=d.map(x=>x.toDeploy).filter(v=>v!=null);
+
+  const dates = d.map(x=>x.resolved).filter(Boolean);
+  let ml=''; if(dates.length){const m=dates[0].match(/(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d+,?\s*(\d{4})/);if(m)ml=m[1]+' '+m[2];}
+  document.getElementById('mainTitle').textContent='Métricas de Fluxo'+(ml?' — '+ml:'');
+  document.getElementById('mainSubtitle').textContent=d.length+' itens · Horas trabalhadas (8h = 1 dia) · Destaque P70';
+
+  // OVERVIEW
+  const buckets=[{l:'0h',a:-0.001,b:0.001},{l:'0-2h',a:0.001,b:2},{l:'2-8h',a:2,b:8},{l:'8-16h',a:8,b:16},{l:'2-3d',a:16,b:24},{l:'3-5d',a:24,b:40},{l:'5d+',a:40,b:Infinity}];
+  const hd=buckets.map(b=>({...b,count:totals.filter(v=>v>=b.a&&v<b.b).length}));
+  const mc=Math.max(...hd.map(h=>h.count),1);
+
+  const typeMap={}; d.forEach(x=>{if(!typeMap[x.type])typeMap[x.type]=[];typeMap[x.type].push(x.total);});
+  const byType=Object.entries(typeMap).map(([t,v])=>({t,n:v.length,p50:percentile(v,50),p70:percentile(v,70),p85:percentile(v,85)})).sort((a,b)=>a.p70-b.p70);
+
+  document.getElementById('tab-overview').innerHTML=`
+    <div class="cards">${card('P50',fmtS(ct50),fmtR(ct50),'var(--p50)',false)}${card('P70',fmtS(ct70),fmtR(ct70),'var(--p70)',true)}${card('P85',fmtS(ct85),fmtR(ct85),'var(--p85)',false)}${card('P95',fmtS(ct95),fmtR(ct95),'var(--p95)',false)}</div>
+    <div class="cards" style="margin-bottom:24px">${card('Throughput',d.length,'itens / mês','var(--purple)',false)}${card('Média',fmtS(avg),fmtR(avg),'var(--gray)',false)}</div>
+    <div class="section"><h3>Distribuição do Cycle Time</h3>
+      <div class="hist">${hd.map(b=>`<div class="hist-bar"><div class="hist-count">${b.count||''}</div><div class="hist-fill${b.count?'':' empty'}" style="height:${Math.max((b.count/mc)*110,b.count>0?8:2)}px"></div><div class="hist-label">${b.l}</div></div>`).join('')}</div>
+    </div>
+    <div class="section"><h3>Cycle Time por Tipo</h3>
+      ${byType.map(t=>`<div class="type-row">
+        <span class="type-badge" style="background:${tcolor(t.t)}">${t.t}</span>
+        <div class="type-bar"><div class="type-fill" style="width:${Math.min((t.p85/(ct95||1))*100,100)}%;background:${tcolor(t.t)}20"></div><div class="type-marker" style="left:${Math.min((t.p70/(ct95||1))*100,98)}%;background:${tcolor(t.t)}"></div></div>
+        <span class="type-vals">P50: ${fmtS(t.p50)} · <strong>P70: ${fmtS(t.p70)}</strong> · P85: ${fmtS(t.p85)}</span>
+        <span class="type-count">(${t.n})</span></div>`).join('')}
+    </div>`;
+
+  // ALLOCATION
+  renderAllocation(d);
+
+  // STAGES
+  const stageRow=(name,data,color)=>{
+    const cells=[50,70,85,95].map(p=>{const v=data.length?fmtS(percentile(data,p)):'-';return p===70?`<td class="p70col">${v}</td>`:`<td>${v}</td>`;}).join('');
+    return `<tr><td><span class="dot" style="background:${color}"></span>${name}</td>${cells}</tr>`;
+  };
+  const avgIP=ipT.length?ipT.reduce((a,b)=>a+b,0)/ipT.length:0;
+  const avgCR=crT.length?crT.reduce((a,b)=>a+b,0)/crT.length:0;
+  const avgTD=dpT.length?dpT.reduce((a,b)=>a+b,0)/dpT.length:0;
+  const tot=avgIP+avgCR+avgTD||1;
+
+  document.getElementById('tab-stages').innerHTML=`
+    <div class="cards" style="margin-bottom:24px">
+      ${card('In Progress (P70)',ipT.length?fmtS(percentile(ipT,70)):'-',ipT.length+' itens','var(--blue)',true)}
+      ${card('Code Review (P70)',crT.length?fmtS(percentile(crT,70)):'-',crT.length+' itens','var(--yellow)',true)}
+      ${card('To Deploy (P70)',dpT.length?fmtS(percentile(dpT,70)):'-',dpT.length+' itens','var(--green)',true)}
+    </div>
+    <div class="section"><h3>Percentis por Estágio</h3><div style="overflow-x:auto">
+      <table><thead><tr><th style="text-align:left">Estágio</th><th>P50</th><th class="p70col">P70</th><th>P85</th><th>P95</th></tr></thead>
+      <tbody>${stageRow('In Progress',ipT,'#3b82f6')}${stageRow('Code Review',crT,'#f59e0b')}${stageRow('To Deploy',dpT,'#10b981')}${stageRow('Total',totals,'#6366f1')}</tbody></table></div></div>
+    <div class="section"><h3>Proporção média por estágio</h3>
+      <div class="prop-bar">
+        <div class="prop-seg" style="width:${(avgIP/tot)*100}%;background:#3b82f6">${((avgIP/tot)*100).toFixed(0)}%</div>
+        <div class="prop-seg" style="width:${(avgCR/tot)*100}%;background:#f59e0b">${((avgCR/tot)*100).toFixed(0)}%</div>
+        <div class="prop-seg" style="width:${(avgTD/tot)*100}%;background:#10b981">${((avgTD/tot)*100).toFixed(0)}%</div>
+      </div>
+      <div class="prop-legend">
+        <span><span class="dot" style="background:#3b82f6"></span>In Progress (${fmtS(avgIP)})</span>
+        <span><span class="dot" style="background:#f59e0b"></span>Code Review (${fmtS(avgCR)})</span>
+        <span><span class="dot" style="background:#10b981"></span>To Deploy (${fmtS(avgTD)})</span>
+      </div></div>`;
+
+  // PEOPLE
+  const personMap={}; d.forEach(x=>{if(!personMap[x.assignee])personMap[x.assignee]=[];personMap[x.assignee].push(x.total);});
+  const byPerson=Object.entries(personMap).map(([n,v])=>({n,c:v.length,p50:percentile(v,50),p70:percentile(v,70),p85:percentile(v,85),avg:v.reduce((a,b)=>a+b,0)/v.length})).sort((a,b)=>a.p70-b.p70);
+
+  document.getElementById('tab-people').innerHTML=byPerson.map(p=>`
+    <div class="person"><div class="person-header"><div><span class="person-name">${p.n}</span><span class="person-count">${p.c} itens</span></div><span class="person-tp">Throughput: ${p.c}/mês</span></div>
+      <div class="person-metrics">
+        <div class="person-metric"><div class="pm-label">P50</div><div class="pm-value" style="color:var(--p50)">${fmtS(p.p50)}</div><div class="pm-raw">${fmtR(p.p50)}</div></div>
+        <div class="person-metric hl"><div class="pm-label p70">P70</div><div class="pm-value p70" style="color:var(--p70)">${fmtS(p.p70)}</div><div class="pm-raw">${fmtR(p.p70)}</div></div>
+        <div class="person-metric"><div class="pm-label">P85</div><div class="pm-value" style="color:var(--p85)">${fmtS(p.p85)}</div><div class="pm-raw">${fmtR(p.p85)}</div></div>
+        <div class="person-metric"><div class="pm-label">Média</div><div class="pm-value" style="color:var(--gray)">${fmtS(p.avg)}</div><div class="pm-raw">${fmtR(p.avg)}</div></div>
+      </div></div>`).join('');
+
+  // SCATTER
+  const sMax=Math.min(Math.max(...totals,1)*1.1,120);
+  const gLines=[0,20,40,60,80,100].filter(v=>(280-(v/sMax)*260)>10).map(v=>{
+    const y=280-(v/sMax)*260;
+    return `<line x1="50" y1="${y}" x2="680" y2="${y}" stroke="var(--svg-grid)" stroke-width="1"/><text x="46" y="${y+4}" text-anchor="end" font-size="10" fill="var(--text3)">${fmtS(v)}</text>`;
+  }).join('');
+  const pL=[{v:ct50,l:'P50',c:'var(--p50)',w:1},{v:ct70,l:'P70',c:'var(--p70)',w:2.5},{v:ct85,l:'P85',c:'var(--p85)',w:1}].map(p=>{
+    const y=280-(Math.min(p.v,sMax)/sMax)*260;
+    return `<line x1="50" y1="${y}" x2="680" y2="${y}" stroke="${p.c}" stroke-width="${p.w}" stroke-dasharray="${p.l==='P70'?'none':'6,4'}"/><text x="682" y="${y+4}" font-size="10" fill="${p.c}" font-weight="700">${p.l} (${fmtS(p.v)})</text>`;
+  }).join('');
+  const dots=d.map(item=>{
+    const dn=new Date(item.resolved).getDate()||1, x=50+((dn-1)/30)*630, y=280-(Math.min(item.total,sMax)/sMax)*260, c=tcolor(item.type);
+    return `<circle cx="${x}" cy="${y}" r="5" fill="${c}" opacity="0.75" stroke="var(--bg)" stroke-width="1.5"><title>${item.key}: ${item.summary} (${fmt(item.total)}) — ${item.assignee}</title></circle>`;
+  }).join('');
+  const xL=[1,5,10,15,20,25,29].map(dd=>`<text x="${50+((dd-1)/30)*630}" y="300" text-anchor="middle" font-size="10" fill="var(--text3)">${dd}</text>`).join('');
+  const leg=Object.entries(TC).map(([t,c])=>`<span><span class="dot" style="background:${c}"></span>${t}</span>`).join('');
+
+  document.getElementById('tab-scatter').innerHTML=`
+    <div class="section"><h3>Cycle Time Scatter Plot</h3>
+      <p style="font-size:11px;color:var(--text3);margin:0 0 16px">Cada ponto = 1 item · Linha sólida = P70 · Hover para detalhes</p>
+      <svg viewBox="0 0 700 320" style="width:100%">${gLines}${pL}${dots}${xL}</svg>
+      <div class="scatter-legend">${leg}</div></div>`;
+}
+
+function renderAllocation(d) {
+  const totalItems = d.length;
+  const totalHours = d.reduce((s, x) => s + x.total, 0);
+
+  // By type: count and hours
+  const typeStats = {};
+  d.forEach(x => {
+    if (!typeStats[x.type]) typeStats[x.type] = { count: 0, hours: 0 };
+    typeStats[x.type].count++;
+    typeStats[x.type].hours += x.total;
+  });
+
+  // Group into allocation categories
+  const allocData = Object.entries(ALLOC).map(([group, types]) => {
+    let count = 0, hours = 0;
+    const breakdown = [];
+    types.forEach(t => {
+      if (typeStats[t]) {
+        count += typeStats[t].count;
+        hours += typeStats[t].hours;
+        breakdown.push({ type: t, count: typeStats[t].count, hours: typeStats[t].hours });
+      }
+    });
+    return { group, count, hours, breakdown, color: ALLOC_COLORS[group] };
+  }).filter(a => a.count > 0);
+
+  // All types for item distribution
+  const allTypes = Object.entries(typeStats).map(([t, s]) => ({
+    type: t, count: s.count, hours: s.hours,
+    pctCount: totalItems ? (s.count / totalItems * 100) : 0,
+    pctHours: totalHours ? (s.hours / totalHours * 100) : 0
+  })).sort((a, b) => b.pctHours - a.pctHours);
+
+  const maxPct = Math.max(...allTypes.map(t => t.pctHours), 1);
+
+  // Donut SVG
+  const donutR = 70, donutInner = 45, cx = 90, cy = 90;
+  let startAngle = -90;
+  const arcs = allocData.map(a => {
+    const pct = totalHours ? a.hours / totalHours : 0;
+    const angle = pct * 360;
+    const endAngle = startAngle + angle;
+    const largeArc = angle > 180 ? 1 : 0;
+    const x1 = cx + donutR * Math.cos(startAngle * Math.PI / 180);
+    const y1 = cy + donutR * Math.sin(startAngle * Math.PI / 180);
+    const x2 = cx + donutR * Math.cos(endAngle * Math.PI / 180);
+    const y2 = cy + donutR * Math.sin(endAngle * Math.PI / 180);
+    const ix1 = cx + donutInner * Math.cos(endAngle * Math.PI / 180);
+    const iy1 = cy + donutInner * Math.sin(endAngle * Math.PI / 180);
+    const ix2 = cx + donutInner * Math.cos(startAngle * Math.PI / 180);
+    const iy2 = cy + donutInner * Math.sin(startAngle * Math.PI / 180);
+    const path = `M ${x1} ${y1} A ${donutR} ${donutR} 0 ${largeArc} 1 ${x2} ${y2} L ${ix1} ${iy1} A ${donutInner} ${donutInner} 0 ${largeArc} 0 ${ix2} ${iy2} Z`;
+    startAngle = endAngle;
+    return `<path d="${path}" fill="${a.color}" opacity="0.85"/>`;
+  }).join('');
+
+  const donutSvg = `<svg viewBox="0 0 180 180" width="180" height="180">${arcs}</svg>`;
+
+  const donutLegend = allocData.map(a => {
+    const pct = totalHours ? (a.hours / totalHours * 100).toFixed(1) : '0';
+    return `<div class="donut-legend-item"><span class="dot" style="background:${a.color}"></span><span class="donut-legend-pct">${pct}%</span><span>${a.group}</span></div>`;
+  }).join('');
+
+  document.getElementById('tab-allocation').innerHTML = `
+    <div class="section">
+      <h3>Alocação do Esforço (por horas)</h3>
+      <div class="donut-container">
+        ${donutSvg}
+        <div class="donut-legend">${donutLegend}</div>
+      </div>
+      <div style="margin-top:20px">
+        ${allocData.map(a => {
+          const pctH = totalHours ? (a.hours/totalHours*100).toFixed(1) : '0';
+          return `<div class="alloc-group">
+            <div class="alloc-group-title" style="color:${a.color}">${a.group} — ${pctH}%</div>
+            ${a.breakdown.map(b => {
+              const bp = totalHours ? (b.hours/totalHours*100).toFixed(1) : '0';
+              return `<div class="alloc-item">
+                <span class="alloc-label"><span class="dot" style="background:${tcolor(b.type)}"></span>${b.type}</span>
+                <div class="alloc-bar-track"><div class="alloc-bar-fill" style="width:${(b.hours/totalHours*100)/(maxPct)*100}%;background:${tcolor(b.type)}"></div></div>
+                <span class="alloc-val">${b.count} itens · ${bp}% · ${fmtR(b.hours)}</span>
+              </div>`;
+            }).join('')}
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+    <div class="section">
+      <h3>Distribuição por Tipo de Item</h3>
+      ${allTypes.map(t => {
+        return `<div class="alloc-item">
+          <span class="alloc-label"><span class="dot" style="background:${tcolor(t.type)}"></span>${t.type}</span>
+          <div class="alloc-bar-track"><div class="alloc-bar-fill" style="width:${(t.pctCount/Math.max(...allTypes.map(x=>x.pctCount),1))*100}%;background:${tcolor(t.type)}"></div></div>
+          <span class="alloc-val">${t.count} itens (${t.pctCount.toFixed(1)}%)</span>
+        </div>`;
+      }).join('')}
+    </div>
+    <div class="section">
+      <h3>Tempo Alocado por Tipo (horas)</h3>
+      ${allTypes.map(t => {
+        return `<div class="alloc-item">
+          <span class="alloc-label"><span class="dot" style="background:${tcolor(t.type)}"></span>${t.type}</span>
+          <div class="alloc-bar-track"><div class="alloc-bar-fill" style="width:${(t.pctHours/maxPct)*100}%;background:${tcolor(t.type)}"></div></div>
+          <span class="alloc-val">${fmtR(t.hours)} (${t.pctHours.toFixed(1)}%)</span>
+        </div>`;
+      }).join('')}
+    </div>`;
+}
+</script>
+</body>
+</html>
