@@ -107,6 +107,30 @@ h1 { font-size: 22px; font-weight: 800; color: var(--title); }
 .prop-legend { display: flex; gap: 20px; font-size: 12px; color: var(--text2); flex-wrap: wrap; }
 .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
 
+/* Stage chart */
+.stage-chart { display: flex; align-items: flex-end; gap: 24px; justify-content: center; height: 180px; padding: 0 20px; }
+.stage-col { display: flex; flex-direction: column; align-items: center; flex: 1; max-width: 160px; }
+.stage-bars { display: flex; gap: 6px; align-items: flex-end; height: 140px; width: 100%; justify-content: center; }
+.stage-bar { width: 32px; border-radius: 6px 6px 0 0; position: relative; transition: height 0.4s; min-height: 2px; }
+.stage-bar-label { font-size: 10px; font-weight: 700; color: white; position: absolute; top: 4px; left: 0; right: 0; text-align: center; }
+.stage-bar-val { font-size: 10px; color: var(--text2); text-align: center; margin-top: 2px; white-space: nowrap; }
+.stage-col-title { font-size: 12px; font-weight: 600; color: var(--text); margin-top: 8px; text-align: center; }
+.stage-legend-row { display: flex; gap: 20px; justify-content: center; margin-top: 16px; font-size: 12px; color: var(--text2); }
+
+/* Top tasks */
+.top-task { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.top-task:last-child { border-bottom: none; }
+.top-rank { font-size: 18px; font-weight: 800; color: var(--text3); min-width: 28px; text-align: center; }
+.top-info { flex: 1; min-width: 0; }
+.top-key { font-size: 12px; font-weight: 700; color: var(--p70); }
+.top-summary { font-size: 12px; color: var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.top-assignee { font-size: 11px; color: var(--text3); }
+.top-time { text-align: right; min-width: 80px; }
+.top-time-val { font-size: 16px; font-weight: 800; color: var(--text); }
+.top-time-raw { font-size: 10px; color: var(--text3); }
+.top-stages { display: flex; height: 6px; border-radius: 3px; overflow: hidden; margin-top: 4px; }
+.top-stage-seg { height: 100%; }
+
 /* Allocation */
 .alloc-group { margin-bottom: 16px; }
 .alloc-group-title { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
@@ -238,7 +262,7 @@ function fmtS(h) {
 
 function fmtR(h) { return h != null ? h.toFixed(1)+'h' : '-'; }
 
-const TC = {Bug:'#ef4444',Enhancement:'#6366f1',Subtask:'#8b5cf6',Support:'#f59e0b','Tech Debt':'#10b981',Discovery:'#06b6d4','Design System':'#ec4899'};
+const TC = {Subtask:'#4ade80',Enhancement:'#15803d',Bug:'#ef4444',Support:'#94a3b8','Tech Debt':'#3b82f6',Discovery:'#8b5cf6','Design System':'#ec4899'};
 function tcolor(t) { return TC[t]||'#6366f1'; }
 
 // Allocation categories
@@ -355,11 +379,69 @@ function render() {
   const avgTD=dpT.length?dpT.reduce((a,b)=>a+b,0)/dpT.length:0;
   const tot=avgIP+avgCR+avgTD||1;
 
+  // Stage chart data
+  const stageChartData = [
+    { name:'In Progress', color:'#3b82f6', data:ipT },
+    { name:'Code Review', color:'#f59e0b', data:crT },
+    { name:'To Deploy', color:'#10b981', data:dpT },
+  ];
+  const chartMaxH = Math.max(...stageChartData.flatMap(s => s.data.length ? [percentile(s.data,85)] : [0]), 1);
+
+  const stageChartHTML = stageChartData.map(s => {
+    const p50 = s.data.length ? percentile(s.data,50) : 0;
+    const p70 = s.data.length ? percentile(s.data,70) : 0;
+    const p85 = s.data.length ? percentile(s.data,85) : 0;
+    const h50 = Math.max((p50/chartMaxH)*120, p50>0?4:2);
+    const h70 = Math.max((p70/chartMaxH)*120, p70>0?4:2);
+    const h85 = Math.max((p85/chartMaxH)*120, p85>0?4:2);
+    return `<div class="stage-col">
+      <div class="stage-bars">
+        <div><div class="stage-bar" style="height:${h50}px;background:${s.color}60">${h50>20?`<span class="stage-bar-label">${fmtS(p50)}</span>`:''}</div><div class="stage-bar-val">${h50<=20?fmtS(p50):''}</div></div>
+        <div><div class="stage-bar" style="height:${h70}px;background:${s.color}">${h70>20?`<span class="stage-bar-label">${fmtS(p70)}</span>`:''}</div><div class="stage-bar-val">${h70<=20?fmtS(p70):''}</div></div>
+        <div><div class="stage-bar" style="height:${h85}px;background:${s.color}90">${h85>20?`<span class="stage-bar-label">${fmtS(p85)}</span>`:''}</div><div class="stage-bar-val">${h85<=20?fmtS(p85):''}</div></div>
+      </div>
+      <div class="stage-col-title">${s.name}</div>
+    </div>`;
+  }).join('');
+
+  // Top 5 slowest tasks
+  const top5 = [...d].sort((a,b) => b.total - a.total).slice(0,5);
+  const top5HTML = top5.map((t,i) => {
+    const ip = t.inProgress||0, cr = t.codeReview||0, dp = t.toDeploy||0;
+    const tt = ip+cr+dp||1;
+    return `<div class="top-task">
+      <div class="top-rank">#${i+1}</div>
+      <div class="top-info">
+        <div><span class="top-key">${t.key}</span> <span class="type-badge" style="background:${tcolor(t.type)};font-size:10px;padding:1px 6px">${t.type}</span></div>
+        <div class="top-summary" title="${t.summary}">${t.summary}</div>
+        <div class="top-assignee">${t.assignee}</div>
+        <div class="top-stages">
+          <div class="top-stage-seg" style="width:${(ip/tt)*100}%;background:#3b82f6"></div>
+          <div class="top-stage-seg" style="width:${(cr/tt)*100}%;background:#f59e0b"></div>
+          <div class="top-stage-seg" style="width:${(dp/tt)*100}%;background:#10b981"></div>
+        </div>
+      </div>
+      <div class="top-time">
+        <div class="top-time-val">${fmtS(t.total)}</div>
+        <div class="top-time-raw">${fmtR(t.total)}</div>
+      </div>
+    </div>`;
+  }).join('');
+
   document.getElementById('tab-stages').innerHTML=`
     <div class="cards" style="margin-bottom:24px">
       ${card('In Progress (P70)',ipT.length?fmtS(percentile(ipT,70)):'-',ipT.length+' itens','var(--blue)',true)}
       ${card('Code Review (P70)',crT.length?fmtS(percentile(crT,70)):'-',crT.length+' itens','var(--yellow)',true)}
       ${card('To Deploy (P70)',dpT.length?fmtS(percentile(dpT,70)):'-',dpT.length+' itens','var(--green)',true)}
+    </div>
+    <div class="section">
+      <h3>Tempo por Estágio — P50 · P70 · P85</h3>
+      <div class="stage-chart">${stageChartHTML}</div>
+      <div class="stage-legend-row">
+        <span><span class="dot" style="background:var(--text3)"></span>P50 (claro)</span>
+        <span><span class="dot" style="background:var(--text)"></span>P70 (sólido)</span>
+        <span><span class="dot" style="background:var(--text2)"></span>P85 (médio)</span>
+      </div>
     </div>
     <div class="section"><h3>Percentis por Estágio</h3><div style="overflow-x:auto">
       <table><thead><tr><th style="text-align:left">Estágio</th><th>P50</th><th class="p70col">P70</th><th>P85</th><th>P95</th></tr></thead>
@@ -374,11 +456,20 @@ function render() {
         <span><span class="dot" style="background:#3b82f6"></span>In Progress (${fmtS(avgIP)})</span>
         <span><span class="dot" style="background:#f59e0b"></span>Code Review (${fmtS(avgCR)})</span>
         <span><span class="dot" style="background:#10b981"></span>To Deploy (${fmtS(avgTD)})</span>
-      </div></div>`;
+      </div></div>
+    <div class="section">
+      <h3>🐢 Top 5 Tasks Mais Demoradas</h3>
+      <div style="margin-top:4px;margin-bottom:12px;font-size:11px;color:var(--text3)">
+        <span class="dot" style="background:#3b82f6"></span>In Progress
+        <span class="dot" style="background:#f59e0b;margin-left:8px"></span>Code Review
+        <span class="dot" style="background:#10b981;margin-left:8px"></span>To Deploy
+      </div>
+      ${top5HTML}
+    </div>`;
 
   // PEOPLE
   const personMap={}; d.forEach(x=>{if(!personMap[x.assignee])personMap[x.assignee]=[];personMap[x.assignee].push(x.total);});
-  const byPerson=Object.entries(personMap).map(([n,v])=>({n,c:v.length,p50:percentile(v,50),p70:percentile(v,70),p85:percentile(v,85),avg:v.reduce((a,b)=>a+b,0)/v.length})).sort((a,b)=>a.p70-b.p70);
+  const byPerson=Object.entries(personMap).map(([n,v])=>({n,c:v.length,p50:percentile(v,50),p70:percentile(v,70),p85:percentile(v,85),avg:v.reduce((a,b)=>a+b,0)/v.length})).sort((a,b)=>b.c-a.c);
 
   document.getElementById('tab-people').innerHTML=byPerson.map(p=>`
     <div class="person"><div class="person-header"><div><span class="person-name">${p.n}</span><span class="person-count">${p.c} itens</span></div><span class="person-tp">Throughput: ${p.c}/mês</span></div>
