@@ -59,6 +59,10 @@ h1 { font-size: 22px; font-weight: 800; color: var(--title); }
 .card-label { font-size: 11px; color: var(--text2); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
 .card-value { font-size: 24px; font-weight: 800; margin-top: 4px; }
 .card-sub { font-size: 11px; color: var(--text3); margin-top: 2px; }
+.hours-total-grid { display: grid; grid-template-columns: repeat(4, minmax(120px, 1fr)); gap: 10px; }
+.hours-total-item { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
+.hours-total-label { font-size: 11px; color: var(--text2); text-transform: uppercase; font-weight: 700; letter-spacing: 0.4px; }
+.hours-total-value { font-size: 22px; font-weight: 800; margin-top: 6px; color: var(--text); }
 
 /* Section */
 .section { background: var(--card-bg); border-radius: 12px; padding: 20px; margin-bottom: 20px; }
@@ -262,6 +266,7 @@ function fmtS(h) {
 }
 
 function fmtR(h) { return h != null ? h.toFixed(1)+'h' : '-'; }
+function fmtH(h) { return (h ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + 'h'; }
 
 const TC = {Subtask:'#4ade80',Enhancement:'#15803d',Bug:'#ef4444',Support:'#94a3b8','Tech Debt':'#3b82f6',Discovery:'#8b5cf6','Design System':'#ec4899'};
 function tcolor(t) { return TC[t]||'#6366f1'; }
@@ -378,6 +383,10 @@ function render() {
   const avgIP=ipT.length?ipT.reduce((a,b)=>a+b,0)/ipT.length:0;
   const avgCR=crT.length?crT.reduce((a,b)=>a+b,0)/crT.length:0;
   const avgTD=dpT.length?dpT.reduce((a,b)=>a+b,0)/dpT.length:0;
+  const sumIP=ipT.reduce((a,b)=>a+b,0);
+  const sumCR=crT.reduce((a,b)=>a+b,0);
+  const sumTD=dpT.reduce((a,b)=>a+b,0);
+  const sumTotal=totals.reduce((a,b)=>a+b,0);
   const tot=avgIP+avgCR+avgTD||1;
 
   // Stage chart data
@@ -430,6 +439,27 @@ function render() {
   }).join('');
 
   document.getElementById('tab-stages').innerHTML=`
+    <div class="section">
+      <h3>Total de Horas por Estágio</h3>
+      <div class="hours-total-grid">
+        <div class="hours-total-item">
+          <div class="hours-total-label">In Progress</div>
+          <div class="hours-total-value" style="color:#3b82f6">${fmtH(sumIP)}</div>
+        </div>
+        <div class="hours-total-item">
+          <div class="hours-total-label">Code Review</div>
+          <div class="hours-total-value" style="color:#f59e0b">${fmtH(sumCR)}</div>
+        </div>
+        <div class="hours-total-item">
+          <div class="hours-total-label">To Deploy</div>
+          <div class="hours-total-value" style="color:#10b981">${fmtH(sumTD)}</div>
+        </div>
+        <div class="hours-total-item">
+          <div class="hours-total-label">Total</div>
+          <div class="hours-total-value" style="color:var(--p70)">${fmtH(sumTotal)}</div>
+        </div>
+      </div>
+    </div>
     <div class="cards" style="margin-bottom:24px">
       ${card('In Progress (P70)',ipT.length?fmtS(percentile(ipT,70)):'-',ipT.length+' itens','var(--blue)',true)}
       ${card('Code Review (P70)',crT.length?fmtS(percentile(crT,70)):'-',crT.length+' itens','var(--yellow)',true)}
