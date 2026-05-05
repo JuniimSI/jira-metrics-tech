@@ -230,11 +230,62 @@ function parseCSV(text) {
 }
 
 function csvToData(rows) {
+  const normalizeHeader = header => (header || '')
+    .toString()
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .toLowerCase();
+
+  const getByHeader = (row, aliases) => {
+    const wanted = aliases.map(normalizeHeader);
+    for (const [rawKey, value] of Object.entries(row)) {
+      if (wanted.includes(normalizeHeader(rawKey))) return value;
+    }
+    return '';
+  };
+
+  const normalizeType = rawType => {
+    const cleaned = (rawType || '').trim();
+    if (!cleaned) return '';
+
+    const normalized = cleaned
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+
+    if (['design system', 'design-system', 'ds'].includes(normalized)) return 'Design System';
+    if (['melhoria tecnica', 'technical improvement'].includes(normalized)) return 'Enhancement';
+    if (['tech debt', 'technical debt'].includes(normalized)) return 'Tech Debt';
+    if (normalized.includes('incidente') && normalized.includes('suporte')) return 'Support';
+    if (['incidente/suporte', 'incidente suporte', 'suporte', 'support'].includes(normalized)) return 'Support';
+    if (normalized === 'incidente') return 'Support';
+    if (normalized === 'enhancement' || normalized === 'melhoria') return 'Enhancement';
+    if (normalized === 'bug') return 'Bug';
+    if (normalized === 'subtask' || normalized === 'sub-task' || normalized === 'sub task') return 'Subtask';
+    if (normalized === 'discovery') return 'Discovery';
+
+    return cleaned;
+  };
+
   return rows.map(r => {
     const pn = v => { if (!v || v === '-') return null; const n = parseFloat(v.replace(',','.')); return isNaN(n) ? null : n; };
-    let key = r['Issue Key'] || '';
+    const issueKey = getByHeader(r, ['Issue Key']);
+    let key = issueKey || '';
     const m = key.match(/browse\/([\w-]+)/); if (m) key = m[1];
-    return { assignee: r['Assignee']||'Unassigned', key, type: r['Issue Type']||'', resolved: r['Resolved']||'', summary: r['Summary']||'', inProgress: pn(r['IN PROGRESS']), codeReview: pn(r['Code Review']), toDeploy: pn(r['TO DEPLOY']), total: pn(r['Total']) };
+    return {
+      assignee: getByHeader(r, ['Assignee']) || 'Unassigned',
+      key,
+      type: normalizeType(getByHeader(r, ['Issue Type'])),
+      resolved: getByHeader(r, ['Resolved']),
+      summary: getByHeader(r, ['Summary']),
+      inProgress: pn(getByHeader(r, ['IN PROGRESS', 'In Progress', 'in progress'])),
+      codeReview: pn(getByHeader(r, ['Code Review', 'code review'])),
+      toDeploy: pn(getByHeader(r, ['TO DEPLOY', 'To Deploy', 'to deploy'])),
+      total: pn(getByHeader(r, ['Total']))
+    };
   });
 }
 
@@ -271,13 +322,19 @@ function fmtH(h) { return (h ?? 0).toLocaleString('pt-BR', { minimumFractionDigi
 const TC = {Subtask:'#4ade80',Enhancement:'#15803d',Bug:'#ef4444',Support:'#94a3b8','Tech Debt':'#3b82f6',Discovery:'#8b5cf6','Design System':'#ec4899'};
 function tcolor(t) { return TC[t]||'#6366f1'; }
 
-// Allocation categories
-const ALLOC = {
-  'Reativo': ['Bug','Support'],
-  'Produto': ['Subtask','Enhancement','Design System','Discovery'],
-  'Débitos Técnicos': ['Tech Debt']
+// Alocação (donut): tipo canônico pós-normalização → faixa
+// Produto inclui DS (Design System) e melhoria técnica → Enhancement; Reativo inclui Incidente/Suporte → Support + Bug.
+const TYPE_TO_ALLOC_GROUP = {
+  Bug: 'Reativo',
+  Support: 'Reativo',
+  Subtask: 'Produto',
+  Enhancement: 'Produto',
+  'Design System': 'Produto',
+  Discovery: 'Produto',
+  'Tech Debt': 'Débitos Técnicos'
 };
-const ALLOC_COLORS = {'Reativo':'#ef4444','Produto':'#6366f1','Débitos Técnicos':'#10b981'};
+const ALLOC_GROUP_ORDER = ['Reativo', 'Produto', 'Débitos Técnicos', 'Outros'];
+const ALLOC_COLORS = { Reativo:'#ef4444', Produto:'#6366f1', 'Débitos Técnicos':'#10b981', Outros:'#64748b' };
 
 // Upload
 const uploadArea = document.getElementById('uploadArea');
@@ -547,19 +604,23 @@ function renderAllocation(d) {
     typeStats[x.type].hours += x.total;
   });
 
-  // Group into allocation categories
-  const allocData = Object.entries(ALLOC).map(([group, types]) => {
-    let count = 0, hours = 0;
-    const breakdown = [];
-    types.forEach(t => {
-      if (typeStats[t]) {
-        count += typeStats[t].count;
-        hours += typeStats[t].hours;
-        breakdown.push({ type: t, count: typeStats[t].count, hours: typeStats[t].hours });
-      }
-    });
-    return { group, count, hours, breakdown, color: ALLOC_COLORS[group] };
-  }).filter(a => a.count > 0);
+  const groupBuckets = {};
+  ALLOC_GROUP_ORDER.forEach(g => { groupBuckets[g] = { count: 0, hours: 0, breakdown: [] }; });
+  Object.entries(typeStats).forEach(([type, st]) => {
+    const group = TYPE_TO_ALLOC_GROUP[type] || 'Outros';
+    if (!groupBuckets[group]) groupBuckets[group] = { count: 0, hours: 0, breakdown: [] };
+    groupBuckets[group].count += st.count;
+    groupBuckets[group].hours += st.hours;
+    groupBuckets[group].breakdown.push({ type, count: st.count, hours: st.hours });
+  });
+  const allocData = ALLOC_GROUP_ORDER
+    .map(g => {
+      const b = groupBuckets[g];
+      if (!b || !b.count) return null;
+      b.breakdown.sort((x, y) => y.hours - x.hours);
+      return { group: g, count: b.count, hours: b.hours, breakdown: b.breakdown, color: ALLOC_COLORS[g] || '#64748b' };
+    })
+    .filter(Boolean);
 
   // All types for item distribution
   const allTypes = Object.entries(typeStats).map(([t, s]) => ({
