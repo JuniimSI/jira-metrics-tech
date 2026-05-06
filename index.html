@@ -254,11 +254,16 @@ async function copySectionAsImage(button) {
   try {
     button.disabled = true;
     button.textContent = 'Copiando...';
+    captureNode.setAttribute('data-export-root', 'true');
     const canvas = await window.html2canvas(captureNode, {
       scale: 2,
       useCORS: true,
-      backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--card-bg').trim() || '#ffffff'
+      backgroundColor: '#ffffff',
+      onclone: clonedDoc => {
+        clonedDoc.documentElement.setAttribute('data-theme', '');
+      }
     });
+    captureNode.removeAttribute('data-export-root');
     const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
     if (!blob) throw new Error('Falha ao gerar imagem');
     await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
@@ -268,6 +273,7 @@ async function copySectionAsImage(button) {
       button.disabled = false;
     }, 1200);
   } catch (err) {
+    captureNode.removeAttribute('data-export-root');
     console.error(err);
     button.textContent = 'Erro ao copiar';
     setTimeout(() => {
@@ -782,7 +788,7 @@ function renderAllocation(d) {
 
   const donutLegend = allocData.map(a => {
     const pct = totalHours ? (a.hours / totalHours * 100).toFixed(1) : '0';
-    return `<div class="donut-legend-item"><span class="dot" style="background:${a.color}"></span><span class="donut-legend-pct">${pct}%</span><span>${a.group}</span></div>`;
+    return `<div class="donut-legend-item"><span class="dot" style="background:${a.color}"></span><span class="donut-legend-pct">${pct}%</span><span>${a.group}: ${a.count} itens</span></div>`;
   }).join('');
 
   document.getElementById('tab-allocation').innerHTML = `
