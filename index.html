@@ -67,6 +67,21 @@ h1 { font-size: 22px; font-weight: 800; color: var(--title); }
 /* Section */
 .section { background: var(--card-bg); border-radius: 12px; padding: 20px; margin-bottom: 20px; }
 .section h3 { margin: 0 0 16px; font-size: 14px; font-weight: 700; color: var(--text); }
+.section-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+.section-header h3 { margin: 0; }
+.copy-btn {
+  border: 1px solid var(--border);
+  background: var(--bg2);
+  color: var(--text);
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.copy-btn:hover { border-color: var(--tab-active); color: var(--tab-active); }
+.copy-btn:disabled { opacity: 0.6; cursor: default; }
 .section table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .section th { text-align: right; padding: 8px 4px; color: var(--text2); font-weight: 600; border-bottom: 2px solid var(--border); }
 .section th:first-child { text-align: left; }
@@ -139,11 +154,12 @@ h1 { font-size: 22px; font-weight: 800; color: var(--title); }
 /* Allocation */
 .alloc-group { margin-bottom: 16px; }
 .alloc-group-title { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
-.alloc-item { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.alloc-item { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
 .alloc-bar-track { flex: 1; height: 20px; background: var(--border); border-radius: 6px; overflow: hidden; }
 .alloc-bar-fill { height: 100%; border-radius: 6px; transition: width 0.4s; }
-.alloc-label { font-size: 12px; min-width: 100px; font-weight: 600; color: var(--text); }
-.alloc-val { font-size: 12px; color: var(--text2); min-width: 120px; text-align: right; }
+.alloc-label { font-size: 12px; width: 160px; font-weight: 600; color: var(--text); display: inline-flex; align-items: center; }
+.alloc-val { font-size: 12px; color: var(--text2); min-width: 175px; text-align: right; }
+.alloc-val strong { color: var(--text); font-weight: 800; }
 
 /* Donut */
 .donut-container { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; justify-content: center; }
@@ -153,6 +169,32 @@ h1 { font-size: 22px; font-weight: 800; color: var(--title); }
 
 .scatter-legend { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px; justify-content: center; }
 .scatter-legend span { font-size: 11px; color: var(--text2); display: flex; align-items: center; gap: 4px; }
+.scatter-wrap { position: relative; }
+.scatter-tooltip {
+  position: absolute;
+  z-index: 20;
+  min-width: 240px;
+  max-width: 320px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  box-shadow: 0 10px 24px rgba(0,0,0,0.18);
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.12s, transform 0.12s;
+}
+.scatter-tooltip.show { opacity: 1; transform: translateY(0); }
+.scatter-tooltip-key { font-size: 12px; font-weight: 800; color: var(--title); }
+.scatter-tooltip-type { font-size: 10px; font-weight: 700; color: white; padding: 1px 6px; border-radius: 999px; margin-left: 6px; }
+.scatter-tooltip-summary { font-size: 12px; color: var(--text); margin-top: 6px; }
+.scatter-tooltip-meta { font-size: 11px; color: var(--text2); margin-top: 4px; }
+.scatter-tooltip-stages { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.scatter-stage-tag { font-size: 10px; font-weight: 700; color: white; border-radius: 999px; padding: 2px 8px; white-space: nowrap; }
+.scatter-stage-ip { background: #3b82f6; }
+.scatter-stage-cr { background: #f59e0b; }
+.scatter-stage-td { background: #10b981; }
 .hidden { display: none; }
 </style>
 </head>
@@ -193,11 +235,46 @@ h1 { font-size: 22px; font-weight: 800; color: var(--title); }
 </div>
 
 <script>
+// html2canvas for "copy as image"
+const html2canvasScript = document.createElement('script');
+html2canvasScript.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+document.head.appendChild(html2canvasScript);
+
 const BH = 8;
 let allData = [];
 let currentTab = 'overview';
 let filterType = 'all';
 let filterPerson = 'all';
+
+async function copySectionAsImage(button) {
+  const section = button.closest('.section');
+  if (!section || typeof window.html2canvas !== 'function' || !navigator.clipboard || !window.ClipboardItem) return;
+  const oldText = button.textContent;
+  try {
+    button.disabled = true;
+    button.textContent = 'Copiando...';
+    const canvas = await window.html2canvas(section, {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--card-bg').trim() || '#ffffff'
+    });
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+    if (!blob) throw new Error('Falha ao gerar imagem');
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+    button.textContent = 'Copiado!';
+    setTimeout(() => {
+      button.textContent = oldText;
+      button.disabled = false;
+    }, 1200);
+  } catch (err) {
+    console.error(err);
+    button.textContent = 'Erro ao copiar';
+    setTimeout(() => {
+      button.textContent = oldText;
+      button.disabled = false;
+    }, 1400);
+  }
+}
 
 // Theme
 const themeBtn = document.getElementById('themeBtn');
@@ -318,6 +395,7 @@ function fmtS(h) {
 
 function fmtR(h) { return h != null ? h.toFixed(1)+'h' : '-'; }
 function fmtH(h) { return (h ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + 'h'; }
+function esc(v) { return (v ?? '').toString().replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
 const TC = {Subtask:'#4ade80',Enhancement:'#15803d',Bug:'#ef4444',Support:'#94a3b8','Tech Debt':'#3b82f6',Discovery:'#8b5cf6','Design System':'#ec4899'};
 function tcolor(t) { return TC[t]||'#6366f1'; }
@@ -580,7 +658,17 @@ function render() {
   }).join('');
   const dots=d.map(item=>{
     const dn=new Date(item.resolved).getDate()||1, x=50+((dn-1)/30)*630, y=280-(Math.min(item.total,sMax)/sMax)*260, c=tcolor(item.type);
-    return `<circle cx="${x}" cy="${y}" r="5" fill="${c}" opacity="0.75" stroke="var(--bg)" stroke-width="1.5"><title>${item.key}: ${item.summary} (${fmt(item.total)}) — ${item.assignee}</title></circle>`;
+    return `<circle cx="${x}" cy="${y}" r="5" fill="${c}" opacity="0.75" stroke="var(--bg)" stroke-width="1.5"
+      data-key="${esc(item.key)}"
+      data-type="${esc(item.type)}"
+      data-summary="${esc(item.summary)}"
+      data-assignee="${esc(item.assignee)}"
+      data-total="${esc(fmt(item.total))}"
+      data-total-raw="${esc(fmtR(item.total))}"
+      data-inprogress="${esc(fmt(item.inProgress))}"
+      data-codereview="${esc(fmt(item.codeReview))}"
+      data-todeploy="${esc(fmt(item.toDeploy))}"
+      data-color="${esc(c)}"></circle>`;
   }).join('');
   const xL=[1,5,10,15,20,25,29].map(dd=>`<text x="${50+((dd-1)/30)*630}" y="300" text-anchor="middle" font-size="10" fill="var(--text3)">${dd}</text>`).join('');
   const leg=Object.entries(TC).map(([t,c])=>`<span><span class="dot" style="background:${c}"></span>${t}</span>`).join('');
@@ -588,8 +676,44 @@ function render() {
   document.getElementById('tab-scatter').innerHTML=`
     <div class="section"><h3>Cycle Time Scatter Plot</h3>
       <p style="font-size:11px;color:var(--text3);margin:0 0 16px">Cada ponto = 1 item · Linha sólida = P70 · Hover para detalhes</p>
-      <svg viewBox="0 0 700 320" style="width:100%">${gLines}${pL}${dots}${xL}</svg>
+      <div class="scatter-wrap">
+        <svg viewBox="0 0 700 320" style="width:100%">${gLines}${pL}${dots}${xL}</svg>
+        <div id="scatterTooltip" class="scatter-tooltip"></div>
+      </div>
       <div class="scatter-legend">${leg}</div></div>`;
+
+  const scatterRoot = document.getElementById('tab-scatter');
+  const scatterTooltip = scatterRoot.querySelector('#scatterTooltip');
+  const scatterSvg = scatterRoot.querySelector('svg');
+  scatterRoot.querySelectorAll('circle[data-key]').forEach(dot => {
+    dot.addEventListener('mouseenter', () => {
+      scatterTooltip.classList.add('show');
+    });
+    dot.addEventListener('mouseleave', () => {
+      scatterTooltip.classList.remove('show');
+    });
+    dot.addEventListener('mousemove', e => {
+      const svgRect = scatterSvg.getBoundingClientRect();
+      const tipRect = scatterTooltip.getBoundingClientRect();
+      const localX = e.clientX - svgRect.left;
+      const localY = e.clientY - svgRect.top;
+      const left = Math.min(Math.max(localX + 12, 8), Math.max(svgRect.width - tipRect.width - 8, 8));
+      const top = Math.min(Math.max(localY - tipRect.height - 12, 8), Math.max(svgRect.height - tipRect.height - 8, 8));
+      scatterTooltip.style.left = `${left}px`;
+      scatterTooltip.style.top = `${top}px`;
+      scatterTooltip.innerHTML = `
+        <div><span class="scatter-tooltip-key">${dot.dataset.key || '-'}</span><span class="scatter-tooltip-type" style="background:${dot.dataset.color || '#6366f1'}">${dot.dataset.type || '-'}</span></div>
+        <div class="scatter-tooltip-summary">${dot.dataset.summary || '-'}</div>
+        <div class="scatter-tooltip-meta">Responsável: ${dot.dataset.assignee || '-'}</div>
+        <div class="scatter-tooltip-meta">Cycle Time: <strong>${dot.dataset.total || '-'}</strong> (${dot.dataset.totalRaw || '-'})</div>
+        <div class="scatter-tooltip-stages">
+          <span class="scatter-stage-tag scatter-stage-ip">IN PROGRESS: ${dot.dataset.inprogress || '-'}</span>
+          <span class="scatter-stage-tag scatter-stage-cr">Code Review: ${dot.dataset.codereview || '-'}</span>
+          <span class="scatter-stage-tag scatter-stage-td">TO DEPLOY: ${dot.dataset.todeploy || '-'}</span>
+        </div>
+      `;
+    });
+  });
 }
 
 function renderAllocation(d) {
@@ -630,6 +754,7 @@ function renderAllocation(d) {
   })).sort((a, b) => b.pctHours - a.pctHours);
 
   const maxPct = Math.max(...allTypes.map(t => t.pctHours), 1);
+  const maxCountPct = Math.max(...allTypes.map(t => t.pctCount), 1);
 
   // Donut SVG
   const donutR = 70, donutInner = 45, cx = 90, cy = 90;
@@ -661,7 +786,10 @@ function renderAllocation(d) {
 
   document.getElementById('tab-allocation').innerHTML = `
     <div class="section">
-      <h3>Alocação do Esforço (por horas)</h3>
+      <div class="section-header">
+        <h3>Alocação do Esforço (por horas)</h3>
+        <button class="copy-btn" data-copy-image="section" type="button">Copiar como imagem</button>
+      </div>
       <div class="donut-container">
         ${donutSvg}
         <div class="donut-legend">${donutLegend}</div>
@@ -684,17 +812,36 @@ function renderAllocation(d) {
       </div>
     </div>
     <div class="section">
-      <h3>Distribuição por Tipo de Item</h3>
+      <div class="section-header">
+        <h3>Itens por Tipo (ordenado por tempo %)</h3>
+        <button class="copy-btn" data-copy-image="section" type="button">Copiar como imagem</button>
+      </div>
       ${allTypes.map(t => {
         return `<div class="alloc-item">
           <span class="alloc-label"><span class="dot" style="background:${tcolor(t.type)}"></span>${t.type}</span>
-          <div class="alloc-bar-track"><div class="alloc-bar-fill" style="width:${(t.pctCount/Math.max(...allTypes.map(x=>x.pctCount),1))*100}%;background:${tcolor(t.type)}"></div></div>
+          <div class="alloc-bar-track"><div class="alloc-bar-fill" style="width:${(t.pctHours/maxPct)*100}%;background:${tcolor(t.type)}"></div></div>
+          <span class="alloc-val"><strong>${t.count} itens</strong> · ${t.pctHours.toFixed(1)}% tempo</span>
+        </div>`;
+      }).join('')}
+    </div>
+    <div class="section">
+      <div class="section-header">
+        <h3>Distribuição por Tipo de Item</h3>
+        <button class="copy-btn" data-copy-image="section" type="button">Copiar como imagem</button>
+      </div>
+      ${allTypes.map(t => {
+        return `<div class="alloc-item">
+          <span class="alloc-label"><span class="dot" style="background:${tcolor(t.type)}"></span>${t.type}</span>
+          <div class="alloc-bar-track"><div class="alloc-bar-fill" style="width:${(t.pctCount/maxCountPct)*100}%;background:${tcolor(t.type)}"></div></div>
           <span class="alloc-val">${t.count} itens (${t.pctCount.toFixed(1)}%)</span>
         </div>`;
       }).join('')}
     </div>
     <div class="section">
-      <h3>Tempo Alocado por Tipo (horas)</h3>
+      <div class="section-header">
+        <h3>Tempo Alocado por Tipo (horas)</h3>
+        <button class="copy-btn" data-copy-image="section" type="button">Copiar como imagem</button>
+      </div>
       ${allTypes.map(t => {
         return `<div class="alloc-item">
           <span class="alloc-label"><span class="dot" style="background:${tcolor(t.type)}"></span>${t.type}</span>
@@ -703,6 +850,10 @@ function renderAllocation(d) {
         </div>`;
       }).join('')}
     </div>`;
+
+  document.querySelectorAll('#tab-allocation .copy-btn[data-copy-image="section"]').forEach(btn => {
+    btn.addEventListener('click', () => copySectionAsImage(btn));
+  });
 }
 </script>
 </body>
