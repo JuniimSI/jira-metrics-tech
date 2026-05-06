@@ -248,12 +248,13 @@ let filterPerson = 'all';
 
 async function copySectionAsImage(button) {
   const section = button.closest('.section');
-  if (!section || typeof window.html2canvas !== 'function' || !navigator.clipboard || !window.ClipboardItem) return;
+  const captureNode = section?.querySelector('[data-copy-capture="true"]') || section;
+  if (!captureNode || typeof window.html2canvas !== 'function' || !navigator.clipboard || !window.ClipboardItem) return;
   const oldText = button.textContent;
   try {
     button.disabled = true;
     button.textContent = 'Copiando...';
-    const canvas = await window.html2canvas(section, {
+    const canvas = await window.html2canvas(captureNode, {
       scale: 2,
       useCORS: true,
       backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--card-bg').trim() || '#ffffff'
@@ -790,9 +791,11 @@ function renderAllocation(d) {
         <h3>Alocação do Esforço (por horas)</h3>
         <button class="copy-btn" data-copy-image="section" type="button">Copiar como imagem</button>
       </div>
-      <div class="donut-container">
-        ${donutSvg}
-        <div class="donut-legend">${donutLegend}</div>
+      <div data-copy-capture="true">
+        <div class="donut-container">
+          ${donutSvg}
+          <div class="donut-legend">${donutLegend}</div>
+        </div>
       </div>
       <div style="margin-top:20px">
         ${allocData.map(a => {
@@ -816,39 +819,45 @@ function renderAllocation(d) {
         <h3>Itens por Tipo (ordenado por tempo %)</h3>
         <button class="copy-btn" data-copy-image="section" type="button">Copiar como imagem</button>
       </div>
-      ${allTypes.map(t => {
-        return `<div class="alloc-item">
-          <span class="alloc-label"><span class="dot" style="background:${tcolor(t.type)}"></span>${t.type}</span>
-          <div class="alloc-bar-track"><div class="alloc-bar-fill" style="width:${(t.pctHours/maxPct)*100}%;background:${tcolor(t.type)}"></div></div>
-          <span class="alloc-val"><strong>${t.count} itens</strong> · ${t.pctHours.toFixed(1)}% tempo</span>
-        </div>`;
-      }).join('')}
+      <div data-copy-capture="true">
+        ${allTypes.map(t => {
+          return `<div class="alloc-item">
+            <span class="alloc-label"><span class="dot" style="background:${tcolor(t.type)}"></span>${t.type}</span>
+            <div class="alloc-bar-track"><div class="alloc-bar-fill" style="width:${(t.pctHours/maxPct)*100}%;background:${tcolor(t.type)}"></div></div>
+            <span class="alloc-val"><strong>${t.count} itens</strong> · ${t.pctHours.toFixed(1)}% tempo</span>
+          </div>`;
+        }).join('')}
+      </div>
     </div>
     <div class="section">
       <div class="section-header">
         <h3>Distribuição por Tipo de Item</h3>
         <button class="copy-btn" data-copy-image="section" type="button">Copiar como imagem</button>
       </div>
-      ${allTypes.map(t => {
-        return `<div class="alloc-item">
-          <span class="alloc-label"><span class="dot" style="background:${tcolor(t.type)}"></span>${t.type}</span>
-          <div class="alloc-bar-track"><div class="alloc-bar-fill" style="width:${(t.pctCount/maxCountPct)*100}%;background:${tcolor(t.type)}"></div></div>
-          <span class="alloc-val">${t.count} itens (${t.pctCount.toFixed(1)}%)</span>
-        </div>`;
-      }).join('')}
+      <div data-copy-capture="true">
+        ${allTypes.map(t => {
+          return `<div class="alloc-item">
+            <span class="alloc-label"><span class="dot" style="background:${tcolor(t.type)}"></span>${t.type}</span>
+            <div class="alloc-bar-track"><div class="alloc-bar-fill" style="width:${(t.pctCount/maxCountPct)*100}%;background:${tcolor(t.type)}"></div></div>
+            <span class="alloc-val">${t.count} itens (${t.pctCount.toFixed(1)}%)</span>
+          </div>`;
+        }).join('')}
+      </div>
     </div>
     <div class="section">
       <div class="section-header">
         <h3>Tempo Alocado por Tipo (horas)</h3>
         <button class="copy-btn" data-copy-image="section" type="button">Copiar como imagem</button>
       </div>
-      ${allTypes.map(t => {
-        return `<div class="alloc-item">
-          <span class="alloc-label"><span class="dot" style="background:${tcolor(t.type)}"></span>${t.type}</span>
-          <div class="alloc-bar-track"><div class="alloc-bar-fill" style="width:${(t.pctHours/maxPct)*100}%;background:${tcolor(t.type)}"></div></div>
-          <span class="alloc-val">${fmtR(t.hours)} (${t.pctHours.toFixed(1)}%)</span>
-        </div>`;
-      }).join('')}
+      <div data-copy-capture="true">
+        ${allTypes.map(t => {
+          return `<div class="alloc-item">
+            <span class="alloc-label"><span class="dot" style="background:${tcolor(t.type)}"></span>${t.type}</span>
+            <div class="alloc-bar-track"><div class="alloc-bar-fill" style="width:${(t.pctHours/maxPct)*100}%;background:${tcolor(t.type)}"></div></div>
+            <span class="alloc-val">${fmtR(t.hours)} (${t.pctHours.toFixed(1)}%)</span>
+          </div>`;
+        }).join('')}
+      </div>
     </div>`;
 
   document.querySelectorAll('#tab-allocation .copy-btn[data-copy-image="section"]').forEach(btn => {
